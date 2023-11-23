@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "cursa4"
+version = "0.1.0"
+description = ""
+authors = ["Alexander Kustenkov <kustaa@ispras.ru>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
