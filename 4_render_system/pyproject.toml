@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "cursa4-render"
+version = "0.1.0"
+description = ""
+authors = ["Alexander Kustenkov <kustaa@ispras.ru>"]
+readme = "README.md"
+packages = [{include = "cursa4_render"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+tkinterhtml = "^0.7"
+transformers = "^4.39.3"
+torch = "^2.2.2"
+numpy = "^1.26.4"
+iprogress = "^0.4"
+tqdm = "^4.66.2"
+lxml = {extras = ["html-clean"], version = "^5.2.1"}
+beautifulsoup4 = "^4.12.3"
+scikit-learn = "^1.4.2"
+argostranslate = "^1.9.3"
+
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
