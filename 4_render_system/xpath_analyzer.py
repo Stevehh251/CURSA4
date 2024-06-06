@@ -6,7 +6,8 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
 import numpy as np
-
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from metrics import *
 
 class xpath_analyzer:
@@ -14,21 +15,15 @@ class xpath_analyzer:
     def __init__(self):
         self.vectorizer = CountVectorizer(
             tokenizer=lambda x: re.findall(r'(\/\w+|\[\d+\])', x), lowercase=False)
-
-    def analyze(self, html, predicts, pred_block_prefix):
-        all_xpath = generate_all_xpaths(html)
+        self.classifier = RandomForestClassifier()
         
-        X = []
-        y = []
-        for xpath in all_xpath:
-            X.append(xpath)
-            
-            in_predicted_blocks = [path_contains(block_xpath.split('/'), xpath.split('/')) for
-                                       block_xpath in pred_block_prefix]
-            if xpath_label != 0 and any(in_predicted_blocks):
-                y.append(label)
-            elif xpath_label == 0 and not any(in_predicted_blocks):
-                y.append(0)
+    def predict_labels(self, xpaths, y, all_xpath):
+        X = self.vectorizer.fit_transform(xpaths)
+        self.classifier.fit(X, y)
+        
+        all_X = self.vectorizer.transform(all_xpath)
+        all_y = {xpath : label for xpath, label in zip(all_xpath, self.classifier.predict(all_X))}
+        return all_y
     
     
     
@@ -88,23 +83,24 @@ class xpath_analyzer:
 
 
 
-to_analyze = ['/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/div[1]', 
-              '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[1]', 
-              '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[2]', 
-              '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[3]', 
-              '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/div[2]', 
-              '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[4]',
-              '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[5]', 
-              '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[6]', 
-              '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/div[3]', 
-              '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[7]', 
-              '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[8]', 
-              '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[9]',
-              '/html/body/div/div/div/div[4]/dav/div[2]/main/dav[2]/div/div[2]/div/article[9]',
-              '/adasdadsad',
-              '/dgergreger']
-analyze = xpath_analyzer()
-analyze.clusterize(to_analyze)
+# to_analyze = ['/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/div[1]', 
+#               '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[1]', 
+#               '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[2]', 
+#               '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[3]', 
+#               '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/div[2]', 
+#               '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[4]',
+#               '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[5]', 
+#               '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[6]', 
+#               '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/div[3]', 
+#               '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[7]', 
+#               '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[8]', 
+#               '/html/body/div/div/div/div[4]/div/div[2]/main/div[2]/div/div[2]/div/article[9]',
+#               '/html/body/div/div/div/div[4]/dav/div[2]/main/dav[2]/div/div[2]/div/article[9]',
+#               '/adasdadsad',
+#               '/dgergreger']
+# analyze = xpath_analyzer()
+# analyze.clusterize(to_analyze)
+
 # vectorizer = CountVectorizer(tokenizer=lambda x: re.findall(r'//(\w+)|@(\w+)', x), lowercase=False)
 # X_correct = vectorizer.fit_transform(correct_xpaths)
 # X_incorrect = vectorizer.transform(incorrect_xpaths)

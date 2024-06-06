@@ -141,8 +141,8 @@ def extract_items(url):
     )
     html_response = urlopen(req).read().decode()
 
-    classification_model.eval()
-    segmentation_model.eval()
+    # classification_model.eval()
+    # segmentation_model.eval()
 
     extractor = MarkupLMFeatureExtractor()
     valid_processor = MarkupLMProcessor.from_pretrained("microsoft/markuplm-base")
@@ -184,8 +184,7 @@ def extract_items(url):
     print(pred_block_prefix)
     print("Segmentation Done")
     
-    analyze = xpath_analyzer()
-    analyze.analyze(pred_block_xpaths)
+    
     # ^^^^^ Main result of segmentation
 
     # CLASSIFICATION
@@ -205,6 +204,9 @@ def extract_items(url):
 
     statistic = {k: defaultdict(int) for k in class_id2label.keys()}
 
+    all_xpath = []
+    X = []
+    y = []
     for idx in range(len(classification_predictions)):
         for pred_id, word_id, offset in zip(classification_predictions[idx].tolist(), class_encoding.word_ids(idx),
                                             offset_mapping[idx].tolist()):
@@ -214,16 +216,19 @@ def extract_items(url):
                                        block_xpath in pred_block_prefix]
 
                 if pred_id != 0 and any(in_predicted_blocks):
-                    suffix = xpaths[0][word_id]
-                    suffix = re.sub(r"\[\d*\]", "", suffix)
-                    statistic[pred_id][suffix] += 1
+                    X.append(xpaths[0][word_id])
+                    y.append(pred_id)
+                
+                if not any(in_predicted_blocks):
+                    X.append(xpaths[0][word_id])
+                    y.append(0)
+                    
+                all_xpath.append(xpaths[0][word_id])
 
-    allowed_suffix = dict()
-
-    for label in statistic.keys():
-        suffix = max(statistic[label], key=statistic[label].get, default="")
-        allowed_suffix[suffix] = label
         
+    analyzer = xpath_analyzer()
+    t = analyzer.predict_labels(X, y, all_xpath)
+    print(t)
     item_dicts = [defaultdict(list) for _ in pred_block_prefix]
     
     for idx in range(len(classification_predictions)):
@@ -235,13 +240,13 @@ def extract_items(url):
                 in_predicted_blocks = [path_contains(block_xpath.split('/'), xpaths[0][word_id].split('/')) for
                                        block_xpath in pred_block_prefix]
 
-                suffix = re.sub(r"\[\d*\]", "", xpaths[0][word_id])
-
-                if (suffix in allowed_suffix) and any(in_predicted_blocks):
-                    item_dicts[in_predicted_blocks.index(True)][class_id2label[allowed_suffix[suffix]]] += [{
+                if t[xpaths[0][word_id]] != 0 and any(in_predicted_blocks):
+                    item_dicts[in_predicted_blocks.index(True)][class_id2label[t[xpaths[0][word_id]]]] += [{
                         "xpath": xpaths[0][word_id],
-                        "text": nodes_ru[0][word_id]
+                        "text": nodes_ru[0][word_id],
+                        "prob": list(probability.tolist())
                     }]
+                    # print(probability)
                     item_dicts[in_predicted_blocks.index(True)]["snippet"] = pred_block_prefix[in_predicted_blocks.index(True)]
                     
     return item_dicts
