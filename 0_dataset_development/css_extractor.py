@@ -37,7 +37,7 @@ def generate_block_xpaths(html: str, block_selector: str) -> list:
         This function generate list of xpaths for first node with text into each block
     '''
 
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, 'html5lib')
     blocks = soup.select(block_selector)
 
     xpaths = []
@@ -57,7 +57,8 @@ def generate_block_xpaths(html: str, block_selector: str) -> list:
                 xpaths += [xpath_soup(element)]
                 # print(element.string)
                 break
-
+    if (len(blocks) == 0):
+        print(f"Broken css : > {block_selector} <")
     return xpaths
 
 
@@ -67,7 +68,7 @@ def generate_labeled_xpaths(html: str, selector: str, label: str) -> dict:
         xpath -> label
     '''
 
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, 'html5lib')
 
     elements = soup.select(selector)
 
@@ -121,27 +122,28 @@ def load_selectors(selectors_folder: str) -> dict:
     return selectors
 
 
-if __name__ == "__main__":
+def extract(filenames: list, css_folder: str) -> dict:
+    """
+    This function extract information from html using corresponding css-selectors.
 
-    if not os.path.exists(sys.argv[1]):
-        raise Exception("Invalid input directory")
+    Args:
+        filenames (list): The list with paths of filenames. Each file must contain dict with "html" key, which contains its html-code.
+        css_folder (_type_): Path to the folder with sitemaps, which would use to extract items.
 
-    if not os.path.exists(sys.argv[3]):
-        print("Make new directory")
-        os.mkdir(sys.argv[3])
-    else:
-        print("Directory already exists")
-        raise Exception("Directory already exists")
+    Returns:
+        dict: For each file dictionary contains: 
+            * All previous items
+            * Xpaths for extracted items by css selectors
 
-    in_path = os.path.abspath(sys.argv[1])
-    selectors_folder = os.path.abspath(sys.argv[2])
-    out_path = os.path.abspath(sys.argv[3])
+    TODO: Parallelize
+    """
+    answer = dict()
+
+    selectors_folder = os.path.abspath(css_folder)
 
     selectors = load_selectors(selectors_folder)
 
-    files_path = glob(os.path.join(in_path, "*.json"))
-
-    for file_path in tqdm(files_path):
+    for file_path in tqdm(filenames, desc='CSS extracting'):
         with open(file_path) as file:
             info = json.load(file)
 
@@ -149,8 +151,7 @@ if __name__ == "__main__":
         if netloc.startswith("www."):
             netloc = netloc[4:]
 
-        block_xpaths = generate_block_xpaths(
-            info["html"], selectors[netloc]["block"])
+        block_xpaths = generate_block_xpaths(json.loads(info["html"]), selectors[netloc]["block"])
         info["xpaths"] = block_xpaths
 
         allowed_labels = ["block", "title", "short_text",
@@ -162,24 +163,25 @@ if __name__ == "__main__":
 
         for name in selectors[netloc].keys():
             if not (name in allowed_labels):
-                raise Exception(f"Label {name} doesnt allowed in {file_path}")
+                continue
+                # raise Exception(f"Label {name} doesnt allowed in {file_path}")
 
             if name != "block":
-                labeled_xpaths |= generate_labeled_xpaths(
-                    info["html"], selectors[netloc][name], name)
+                labeled_xpaths |= generate_labeled_xpaths(json.loads(info["html"]), selectors[netloc][name], name)
+
         info["labeled_xpaths"] = labeled_xpaths
 
         if (len(info["labeled_xpaths"]) == 0):
-            print("No labels found")
-            print(file_path)
+            print(f"No labels found in {file_path}")
             continue
 
         if (len(info["xpaths"]) == 0):
-            print("No blocks found")
-            print(file_path)
+            print(f"No blocks found in {file_path}")
             continue
 
-        filename = os.path.basename(file_path)
+        answer[file_path] = info
 
-        with open(os.path.join(out_path, filename), "w", encoding="utf-8") as file:
-            json.dump(info, file, ensure_ascii=False, indent=4)
+        # with open(os.path.join(out_path, filename), "w", encoding="utf-8") as file:
+        #     json.dump(info, file, ensure_ascii=False, indent=4)
+
+    return answer

@@ -27,12 +27,12 @@ class xpath_analyzer:
     
     
     
-    def clusterize(self, xpaths):
+    def find_anomaly(self, xpaths):
         vector_xpaths = self.vectorizer.fit_transform(xpaths)
 
         inertia = []
         silhouette_scores = []
-        k_values = range(2, 10)  # Пробуем от 2 до 9 кластеров
+        k_values = range(2, 10) 
 
         for k in k_values:
             kmeans = KMeans(n_clusters=k, random_state=42)
@@ -75,10 +75,13 @@ class xpath_analyzer:
             for xpath in clust_xpaths:
                 print(f"    {xpath}")
 
+        anomaly_xpath = []
         print("Аномалии:")
         for idx in anomalies:
+            anomaly_xpath.append(xpaths[idx])
             print(f"    {xpaths[idx]}")
-
+            
+        return anomaly_xpath
     
 
 

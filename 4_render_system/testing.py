@@ -17,7 +17,7 @@ import os
 from lxml import etree
 
 from xpath_analyzer import xpath_analyzer
-
+import json
 
 def extract_items(url):
     classification_model_path = "title_date_tag.pth"
@@ -170,7 +170,7 @@ def extract_items(url):
 
     pred_block_xpaths = []
 
-    statistic = {k: defaultdict(int) for k in block_id2label.keys()}
+    xpath_statistic = {k: defaultdict(int) for k in block_id2label.keys()}
 
     for idx in range(len(segmentation_predictions)):
         for pred_id, word_id, offset in zip(segmentation_predictions[idx].tolist(), block_encoding.word_ids(idx),
@@ -201,12 +201,12 @@ def extract_items(url):
         classification_output = classification_model(**inputs)
     classification_predictions = classification_output.logits.argmax(dim=-1)
     print("Classification Done")
-
-    statistic = {k: defaultdict(int) for k in class_id2label.keys()}
-
-    all_xpath = []
-    X = []
-    y = []
+    
+    # statistic = {k: defaultdict(int) for k in class_id2label.keys()} # suffix -> label -> count
+    xpath_statistic = defaultdict(lambda: defaultdict(int))
+    label_statistic = {k: list() for k in class_id2label.keys()}
+    
+    
     for idx in range(len(classification_predictions)):
         for pred_id, word_id, offset in zip(classification_predictions[idx].tolist(), class_encoding.word_ids(idx),
                                             offset_mapping[idx].tolist()):
@@ -216,19 +216,25 @@ def extract_items(url):
                                        block_xpath in pred_block_prefix]
 
                 if pred_id != 0 and any(in_predicted_blocks):
-                    X.append(xpaths[0][word_id])
-                    y.append(pred_id)
-                
-                if not any(in_predicted_blocks):
-                    X.append(xpaths[0][word_id])
-                    y.append(0)
+                    prefix = pred_block_prefix[in_predicted_blocks.index(True)]
+                    suffix = xpaths[0][word_id].replace(prefix, "")
                     
-                all_xpath.append(xpaths[0][word_id])
-
-        
+                    xpath_statistic[suffix][pred_id] += 1
+                    label_statistic[pred_id] += [suffix]
+                    
+                    
+    print(json.dumps(xpath_statistic, indent=4, ensure_ascii=False))
+    
     analyzer = xpath_analyzer()
-    t = analyzer.predict_labels(X, y, all_xpath)
-    print(t)
+    
+    for label, label_xpaths in label_statistic.items():
+        if len(label_xpaths) != 0:
+            anomaly = analyzer.find_anomaly(label_xpaths)
+            for xpath in anomaly:
+                del xpath_statistic[xpath][label]
+                if len(xpath_statistic[xpath].keys()) == 0:
+                    del xpath_statistic[xpath]
+    
     item_dicts = [defaultdict(list) for _ in pred_block_prefix]
     
     for idx in range(len(classification_predictions)):
@@ -240,18 +246,24 @@ def extract_items(url):
                 in_predicted_blocks = [path_contains(block_xpath.split('/'), xpaths[0][word_id].split('/')) for
                                        block_xpath in pred_block_prefix]
 
-                if t[xpaths[0][word_id]] != 0 and any(in_predicted_blocks):
-                    item_dicts[in_predicted_blocks.index(True)][class_id2label[t[xpaths[0][word_id]]]] += [{
-                        "xpath": xpaths[0][word_id],
-                        "text": nodes_ru[0][word_id],
-                        "prob": list(probability.tolist())
-                    }]
-                    # print(probability)
-                    item_dicts[in_predicted_blocks.index(True)]["snippet"] = pred_block_prefix[in_predicted_blocks.index(True)]
+                if any(in_predicted_blocks):
+                    prefix = pred_block_prefix[in_predicted_blocks.index(True)]
+                    suffix = xpaths[0][word_id].replace(prefix, "")
+                    
+                    if suffix in xpath_statistic: 
+                        label = max(xpath_statistic[suffix], key=xpath_statistic[suffix].get)
+                        item_dicts[in_predicted_blocks.index(True)][class_id2label[label]] += [{
+                            "xpath": xpaths[0][word_id],
+                            "text": nodes_ru[0][word_id],
+                            # "prob": list(probability.tolist())
+                        }]
+                        # print(probability)
+                        item_dicts[in_predicted_blocks.index(True)]["snippet"] = pred_block_prefix[in_predicted_blocks.index(True)]
                     
     return item_dicts
 
-ans = extract_items("https://ren.tv/news/v-rossii")
+ans = extract_items("https://www.rbc.ru/sport/")
 
-import json
+
+print("ANSWER")
 print(json.dumps(ans, indent=4, ensure_ascii=False))

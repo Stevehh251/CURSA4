@@ -40,11 +40,22 @@ def filter_intersection(filelist: list):
         with open(filename, "r") as _file:
             _data = json.load(_file)
             _data = _data["info"]
-            file_records = [d["title"] for d in _data]
+            file_records = []
+            for d in _data:
+                if d is None:
+                    continue
+                if hasattr(d["title"], "strip"): # this is string
+                    if len(d["title"]):
+                        file_records.append(d["title"])
+                elif hasattr(d["title"], "__iter__"):
+                    if len(d["title"]):
+                        file_records.append(d["title"][0])
+            # file_records = [d["title"] if hasattr(d["title"], "strip") else d["title"][0] for d in _data]
+            # print(file_records)
             file_records = tuple(file_records)
             file_records = set(file_records)
             
-        if intersect(all_records, file_records) <= 0.25:
+        if len(file_records) != 0 and intersect(all_records, file_records) <= 0.25:
             all_records = all_records.union(file_records)
             # print(len(all_records))
             good_files.append(filename)
